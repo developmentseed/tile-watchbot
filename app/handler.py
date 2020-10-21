@@ -3,6 +3,7 @@
 from typing import BinaryIO
 
 import os
+from io import BytesIO
 import json
 
 from boto3.session import Session as boto3_session
@@ -33,6 +34,10 @@ def process(message):
 
     tile = message["tile"]
     layer = message["layer"]
+    expression = message.get(
+        "expression",
+        "B02,B8A,B11,B12,(B08 - B04) / (B08 + B04),1.5 * (B08-B04) / (0.5 + B08 + B04)",
+    )
 
     out_bucket = os.environ["OUTPUT_BUCKET"]
     out_key = os.path.join(layer, f"{tile}.npy")
@@ -40,8 +45,6 @@ def process(message):
     url = f"{mosaic_config.backend}{mosaic_config.host}:{layer}"
     z, x, y = list(map(int, tile.split("-")))
 
-    NDVI = "(B08 - B04) / (B08 + B04)"
-    SAVI = "1.5 * (B08-B04) / (0.5 + B08 + B04)"
     with MosaicBackend(url, reader=S2COGReader) as src_dst:
         try:
             (data, _), _ = src_dst.tile(
@@ -49,7 +52,7 @@ def process(message):
                 y,
                 z,
                 pixel_selection=MedianMethod(),
-                expression=f"B02,B8A,B11,B12,{NDVI},{SAVI}"
+                expression=expression
             )
         except NoAssetFoundError:
             return True
@@ -57,7 +60,7 @@ def process(message):
         if data is None:
             return True
 
-        img = render(data, img_format="NPY")
+        img = BytesIO(render(data, img_format="NPY"))
         _s3_upload(img, out_bucket, out_key)
 
     return True
