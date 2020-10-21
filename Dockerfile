@@ -16,6 +16,4 @@ RUN cd /var/task && find . -type d -a -name 'tests' -print0 | xargs -0 rm -rf
 RUN rm -rdf /var/task/numpy/doc/
 RUN rm -rdf /var/task/stack
 
-COPY handler.py /var/task/handler.py
-
 RUN cd /var/task && zip -r9q /tmp/package.zip *
