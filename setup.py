@@ -17,6 +17,7 @@ extra_reqs = {
         "aws-cdk.aws_sqs==1.76.0",
         "aws-cdk.aws_sns==1.76.0",
         "aws-cdk.aws_ec2==1.76.0",
+        "aws-cdk.aws_ecr_assets==1.76.0",
     ],
 }
 

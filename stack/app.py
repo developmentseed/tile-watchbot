@@ -3,7 +3,7 @@
 import os
 from aws_cdk import core, aws_iam as iam
 
-from watchbot import Lambda, ECS
+from watchbot import Lambda #, ECS
 
 from config import stack_config
 
@@ -77,23 +77,22 @@ Lambda(
     environment=env,
 )
 
-ECS(
-    app,
-    f"{stack_config.name}-ecs-{stack_config.stage}",
-    entrypoint=['python', '-m', 'app'],
-    cpu=stack_config.task_cpu,
-    memory=stack_config.task_memory,
-    mincount=stack_config.min_ecs_instances,
-    maxcount=stack_config.max_ecs_instances,
-    permissions=perms,
-    vpc_id=stack_config.vpcId,
-    vpc_is_default=stack_config.default_vpc,
-    environment=env,
-    env={
-        'account': os.environ["AWS_ACCOUNT_ID"],
-        'region': os.environ["AWS_REGION"]
-    }
-
-)
+# ECS(
+#     app,
+#     f"{stack_config.name}-ecs-{stack_config.stage}",
+#     entrypoint=['python', '-m', 'app'],
+#     cpu=stack_config.task_cpu,
+#     memory=stack_config.task_memory,
+#     mincount=stack_config.min_ecs_instances,
+#     maxcount=stack_config.max_ecs_instances,
+#     permissions=perms,
+#     vpc_id=stack_config.vpcId,
+#     vpc_is_default=stack_config.default_vpc,
+#     environment=env,
+#     env={
+#         'account': os.environ["AWS_ACCOUNT_ID"],
+#         'region': os.environ["AWS_REGION"]
+#     }
+# )
 
 app.synth()

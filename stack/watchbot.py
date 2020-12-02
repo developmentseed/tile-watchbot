@@ -1,10 +1,7 @@
 """cdk_watchbot.lambdaStack: SQS + SNS + LAMBDA/ECS."""
 
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List
 
-import os
-
-import docker
 from aws_cdk import (
     core,
     aws_ecs as ecs,
@@ -16,7 +13,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda,
     aws_lambda_event_sources,
-    aws_ecr_asset,
+    aws_ecr_assets,
 )
 
 
@@ -28,7 +25,6 @@ class Lambda(core.Stack):
         scope: core.Construct,
         id: str,
         handler: str,
-        runtime: aws_lambda.Runtime = aws_lambda.Runtime.PYTHON_3_7,
         memory: int = 3008,
         timeout: int = 900,
         concurrent: int = 10,
@@ -54,13 +50,15 @@ class Lambda(core.Stack):
 
         topic.add_subscription(sns_sub.SqsSubscription(queue))
 
+        asset = aws_lambda.AssetImageCode(directory="./")
+
         worker = aws_lambda.Function(
             self,
             f"{id}-lambda",
             description="Watchbot's worker",
-            runtime=runtime,
-            code=aws_lambda.Code.fromInline("print('yo')"),
-            handler="fake",
+            code=asset,
+            handler=aws_lambda.Handler.FROM_IMAGE,
+            runtime=aws_lambda.Runtime.FROM_IMAGE,
             memory_size=memory,
             reserved_concurrent_executions=concurrent,
             timeout=core.Duration.seconds(timeout),
@@ -75,12 +73,6 @@ class Lambda(core.Stack):
             aws_lambda_event_sources.SqsEventSource(queue, batch_size=1)
         )
         topic.grant_publish(worker)
-
-    # def create_image(self):
-    #     asset = aws_ecr_asset.DockerImageAsset(
-    #         self, "DockerImage", directory="./",
-    #     )
-    #     return asset
 
     # def create_package(self, code_dir: str) -> aws_lambda.Code:
     #     """Build docker image and create package."""
@@ -107,68 +99,68 @@ class Lambda(core.Stack):
     #     return aws_lambda.Code.asset(os.path.join(code_dir, "package.zip"))
 
 
-class ECS(core.Stack):
-    """Titiler ECS Fargate Stack."""
+# class ECS(core.Stack):
+#     """Titiler ECS Fargate Stack."""
 
-    def __init__(
-        self,
-        scope: core.Construct,
-        id: str,
-        cpu: Union[int, float] = 256,
-        memory: Union[int, float] = 512,
-        mincount: int = 1,
-        maxcount: int = 50,
-        permissions: Optional[List[iam.PolicyStatement]] = None,
-        vpc_id: Optional[str] = None,
-        vpc_is_default: Optional[bool] = None,
-        environment: dict = {},
-        **kwargs: Any,
-    ) -> None:
-        """Define stack."""
-        super().__init__(scope, id, **kwargs)
+#     def __init__(
+#         self,
+#         scope: core.Construct,
+#         id: str,
+#         cpu: Union[int, float] = 256,
+#         memory: Union[int, float] = 512,
+#         mincount: int = 1,
+#         maxcount: int = 50,
+#         permissions: Optional[List[iam.PolicyStatement]] = None,
+#         vpc_id: Optional[str] = None,
+#         vpc_is_default: Optional[bool] = None,
+#         environment: dict = {},
+#         **kwargs: Any,
+#     ) -> None:
+#         """Define stack."""
+#         super().__init__(scope, id, **kwargs)
 
-        permissions = permissions or []
+#         permissions = permissions or []
 
-        vpc = ec2.Vpc.from_lookup(self, 'vpc', vpc_id=vpc_id, is_default=vpc_is_default)
+#         vpc = ec2.Vpc.from_lookup(self, 'vpc', vpc_id=vpc_id, is_default=vpc_is_default)
 
-        cluster = ecs.Cluster(self, f"{id}-cluster", vpc=vpc)
+#         cluster = ecs.Cluster(self, f"{id}-cluster", vpc=vpc)
 
-        topic = sns.Topic(self, "ecsTopic", display_name="ECS Watchbot SNS Topic")
-        dlqueue = sqs.Queue(self, "ecsDeadLetterQueue")
-        queue = sqs.Queue(
-            self,
-            "ecsQueue",
-            dead_letter_queue=sqs.DeadLetterQueue(
-                queue=dlqueue, max_receive_count=3
-            ),
-        )
-        environment.update({"REGION": self.region})
+#         topic = sns.Topic(self, "ecsTopic", display_name="ECS Watchbot SNS Topic")
+#         dlqueue = sqs.Queue(self, "ecsDeadLetterQueue")
+#         queue = sqs.Queue(
+#             self,
+#             "ecsQueue",
+#             dead_letter_queue=sqs.DeadLetterQueue(
+#                 queue=dlqueue, max_receive_count=3
+#             ),
+#         )
+#         environment.update({"REGION": self.region})
 
-        topic.add_subscription(sns_sub.SqsSubscription(queue))
+#         topic.add_subscription(sns_sub.SqsSubscription(queue))
 
-        fargate_service = aws_ecs_patterns.QueueProcessingFargateService(
-            self,
-            f"{id}-ecs",
-            cpu=cpu,
-            memory_limit_mib=memory,
-            image=ecs.ContainerImage.from_asset(
-                directory='.',
-                file='Dockerfile.ecs',
-                exclude=["cdk.out"]
-            ),
-            desired_task_count=mincount,
-            max_scaling_capacity=maxcount,
-            enable_ecs_managed_tags=True,
-            environment=environment,
-            max_receive_count=3,
-            enable_logging=True,
-            queue=queue,
-            cluster=cluster,
-            scaling_steps=[
-                {"upper": 0, "change": -5},
-                {"lower": 1, "change": +5},
-            ],
-        )
+#         fargate_service = aws_ecs_patterns.QueueProcessingFargateService(
+#             self,
+#             f"{id}-ecs",
+#             cpu=cpu,
+#             memory_limit_mib=memory,
+#             image=ecs.ContainerImage.from_asset(
+#                 directory='.',
+#                 file='Dockerfile.ecs',
+#                 exclude=["cdk.out"]
+#             ),
+#             desired_task_count=mincount,
+#             max_scaling_capacity=maxcount,
+#             enable_ecs_managed_tags=True,
+#             environment=environment,
+#             max_receive_count=3,
+#             enable_logging=True,
+#             queue=queue,
+#             cluster=cluster,
+#             scaling_steps=[
+#                 {"upper": 0, "change": -5},
+#                 {"lower": 1, "change": +5},
+#             ],
+#         )
 
-        for perm in permissions:
-            fargate_service.task_definition.task_role.add_to_policy(perm)
+#         for perm in permissions:
+#             fargate_service.task_definition.task_role.add_to_policy(perm)
