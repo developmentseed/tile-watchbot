@@ -1,0 +1,3 @@
+# Ignore cdk folder
+cdk.out
+.history

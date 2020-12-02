@@ -3,27 +3,11 @@
 import json
 from functools import partial
 from concurrent import futures
-from collections import Counter
 
 import click
-
 from boto3.session import Session as boto3_session
 
 from rio_tiler.utils import _chunks
-
-
-def sources_callback(ctx, param, value):
-    """Validate uniqueness of sources."""
-    sources = list([name.strip() for name in value])
-
-    # Identify duplicate sources.
-    dupes = [name for (name, count) in Counter(sources).items() if count > 1]
-    if len(dupes) > 0:
-        raise click.BadParameter(
-            "Duplicated sources {!r} cannot be processed.".format(dupes)
-        )
-
-    return sources
 
 
 def aws_send_message(message, topic, client=None):
@@ -44,32 +28,36 @@ def sns_worker(messages, topic, subject=None):
 
 
 @click.command()
-@click.argument("sources", default="-", type=click.File("r"), callback=sources_callback)
-@click.option("--layer", type=str, required=True)
-@click.option(
-    "--topic",
-    type=str,
-    required=True,
-    help="SNS Topic",
-)
-def cli(
-    sources,
-    layer,
-    topic
-):
+@click.argument("tiles", default="-", type=click.File("r"))
+@click.option("--dataset", type=str, required=True)
+@click.option("--reader", type=str)
+@click.option("--layers", type=str)
+@click.option("--expression", type=str)
+@click.option("--topic", type=str, required=True, help="SNS Topic")
+def cli(tiles, dataset, reader, layers, expression, topic):
     """
     Example:
     cat LaMyViet.geojson| supermercado burn 14 | xt -d'-' > list_z14.txt
+
     cat list.txt | python -m create_jobs - \
-        --layer cccmc.sentinel2_winter2018 \
-        --topic arn:aws:sns:us-west-2:552819999234:tilebot-lambda-production-TopicBFC7AF6E-1CNDRSH5TB850
+        --dataset mosaicid://mydataset \
+        --expression "B02,B8A,B11,B12,(B08 - B04) / (B08 + B04),1.5 * (B08-B04) / (0.5 + B08 + B04)" \
+        --mosaic \
+        --topic arn:aws:sns:us-west-2:1111111111:tilebot-lambda-production-TopicAAAAAAAAAAAAAAAAAA
 
     """
-
     def _create_message(tile):
-        return {"tile": tile, "layer": layer}
+        m = {"tile": tile, "dataset": dataset}
+        if layers:
+            m.update({"indexes": layers})
+        if expression:
+            m.update({"expression": expression})
+        if reader:
+            m.update({"reader": reader})
 
-    messages = [_create_message(source) for source in sources]
+        return m
+
+    messages = [_create_message(tile) for tile in tiles]
 
     parts = _chunks(messages, 50)
     _send_message = partial(sns_worker, topic=topic)

@@ -8,20 +8,20 @@ Create Tiles ... a lot of tiles
 add `.env` in `/stack` with the wanted config (or use environment variables)
 
 ```
-STACK_OWNER=vincents
-STACK_CLIENT=cccmc
-STACK_PROJECT=rubber-risk
+STACK_OWNER=user
+STACK_CLIENT=someone
+STACK_PROJECT=myproject
 
 STACK_MOSAIC_BACKEND=dynamodb://
-STACK_MOSAIC_HOST=us-west-2/ds-mosaics
+STACK_MOSAIC_HOST=us-west-2/mosaics
 
 STACK_STAGE=production
-STACK_BUCKETS='["ds-satellite-us-west-2", "sentinel-cogs"]'
+STACK_BUCKETS='["mybucket-us-west-2", "*sentinel-cogs*"]'
 
-STACK_OUTPUT_BUCKET=ds-satellite-us-west-2
+STACK_OUTPUT_BUCKET=mybucket-us-west-2
 ````
 
-`AWS_DEFAULT_REGION=us-west-2 AWS_REGION=us-west-2 cdk deploy`
+`AWS_DEFAULT_REGION=us-west-2 AWS_REGION=us-west-2 cdk deploy tilebot-lambda-production`
 
 ### 2. Send jobs
 
@@ -33,7 +33,10 @@ $ cat my.geojson| supermercado burn 14 | xt -d'-' > list_z14.txt
 - use python script to send jobs to SQS/Lambda
 ```
 $ cd scripts/
-$ cat ../list_tiles.txt | python -m create_jobs \
-    --layer cccmc.sentinel2_winter2018 \
-    --topic arn:aws:sns:us-west-2:552819999234:tilebot-lambda-production-TopicBFC7AF6E-1CNDRSH5TB850
+$ cat ../list_tiles.txt | python -m create_jobs - \
+    --dataset mosaicid://username.layer \
+    --reader rio_tiler_pds.sentinel.aws.S2COGReader \
+    --expression "B02,B8A,B11,B12,(B08 - B04) / (B08 + B04),1.5 * (B08-B04) / (0.5 + B08 + B04)" \
+    --mosaic \
+    --topic arn:aws:sns:us-west-2:1111111111:tilebot-lambda-production-TopicAAAAAAAAAAAAAAAAAA
 ```

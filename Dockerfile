@@ -1,19 +1,23 @@
-FROM lambci/lambda:build-python3.7
-
-WORKDIR /tmp
+FROM lambgeo/lambda-gdal:3.2-python3.8 as gdal
 
 COPY setup.py setup.py
 COPY app/ app/
 
-# Install dependencies
-RUN pip install . -t /var/task  --no-binary numpy,pydantic
+RUN pip install . -t /opt/python  --no-binary numpy,rasterio --no-cache
 
-# Leave module precompiles for faster Lambda startup
-RUN cd /var/task && find . -type f -name '*.pyc' | while read f; do n=$(echo $f | sed 's/__pycache__\///' | sed 's/.cpython-[2-3][0-9]//'); cp $f $n; done;
-RUN cd /var/task && find . -type d -a -name '__pycache__' -print0 | xargs -0 rm -rf
-RUN cd /var/task && find . -type f -a -name '*.py' -print0 | xargs -0 rm -f
-RUN cd /var/task && find . -type d -a -name 'tests' -print0 | xargs -0 rm -rf
-RUN rm -rdf /var/task/numpy/doc/
-RUN rm -rdf /var/task/stack
+FROM public.ecr.aws/lambda/python:3.8
 
-RUN cd /var/task && zip -r9q /tmp/package.zip *
+# Bring C libs from lambgeo/lambda-gdal image
+COPY --from=gdal /opt/lib/ /opt/lib/
+COPY --from=gdal /opt/include/ /opt/include/
+COPY --from=gdal /opt/share/ /opt/share/
+COPY --from=gdal /opt/bin/ /opt/bin/
+
+COPY --from=gdal /opt/python ${LAMBDA_TASK_ROOT}
+
+ENV \
+    GDAL_DATA=/opt/share/gdal \
+    PROJ_LIB=/opt/share/proj \
+    GDAL_CONFIG=/opt/bin/gdal-config \
+    GEOS_CONFIG=/opt/bin/geos-config \
+    PATH=/opt/bin:$PATH

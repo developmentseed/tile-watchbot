@@ -7,9 +7,9 @@ from typing import Optional
 class MosaicSettings(pydantic.BaseSettings):
     """Application settings"""
 
-    backend: str
-    host: str
-    format: Optional[str]
+    backend: Optional[str]
+    host: Optional[str]
+    format: Optional[str] = ".json"
 
     class Config:
         """model config"""
