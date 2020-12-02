@@ -50,7 +50,7 @@ class Lambda(core.Stack):
 
         topic.add_subscription(sns_sub.SqsSubscription(queue))
 
-        asset = aws_lambda.AssetImageCode(directory="./")
+        asset = aws_lambda.AssetImageCode(directory="./", cmd=[handler])
 
         worker = aws_lambda.Function(
             self,
