@@ -114,7 +114,7 @@ def process(message):
     if message.pixel_selection:
         kwargs["pixel_selection"] = message.pixel_selection.method
 
-    # We allow multiple dataset in form of `dataset1,dataset2,dataset3`
+    # We allow multiple datasets in form of `dataset1,dataset2,dataset3`
     for dataset in message.dataset.split(","):
         # MosaicReader
         # mosaic+mosaicid://
@@ -138,7 +138,7 @@ def process(message):
                 bname = os.path.basename(mosaic_dataset).split(".")[0]
 
             out_key = os.path.join(
-                bname, f"{message.tile.x}-{message.tile.y}-{message.tile.z}.npy"
+                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npy"
             )
             with MosaicBackend(url, reader=reader) as src_dst:
                 if not message.expression:
@@ -156,7 +156,7 @@ def process(message):
         else:
             bname = os.path.basename(dataset).split(".")[0]
             out_key = os.path.join(
-                bname, f"{message.tile.x}-{message.tile.y}-{message.tile.z}.npy"
+                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npy"
             )
             with reader(dataset) as src_dst:
                 if not message.expression:
