@@ -107,5 +107,6 @@ ENV/
 package.zip
 
 cdk.out/
+cdk.context.json
 
 data/

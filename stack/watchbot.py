@@ -1,15 +1,16 @@
 """cdk_watchbot.lambdaStack: SQS + SNS + LAMBDA/ECS."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda, aws_lambda_event_sources
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as sns_sub
 from aws_cdk import aws_sqs as sqs
 from aws_cdk import core
-
-# from aws_cdk import aws_ecs as ecs, aws_ec2 as ec2, aws_ecs_patterns, aws_ecr_assets,
+from aws_cdk.aws_applicationautoscaling import ScalingInterval
 
 
 class Lambda(core.Stack):
@@ -84,93 +85,107 @@ class Lambda(core.Stack):
         )
         topic.grant_publish(worker)
 
-    # def create_package(self, code_dir: str) -> aws_lambda.Code:
-    #     """Build docker image and create package."""
-    #     print("Creating lambda package [running in Docker]...")
-    #     client = docker.from_env()
 
-    #     print("Building docker image...")
-    #     client.images.build(
-    #         path=code_dir,
-    #         dockerfile="Dockerfile.lambda",
-    #         tag="lambda:latest",
-    #         rm=True,
-    #     )
+class ECS(core.Stack):
+    """Titiler ECS Fargate Stack."""
 
-    #     print("Copying package.zip ...")
-    #     client.containers.run(
-    #         image="lambda:latest",
-    #         command="/bin/sh -c 'cp /tmp/package.zip /local/package.zip'",
-    #         remove=True,
-    #         volumes={os.path.abspath(code_dir): {"bind": "/local/", "mode": "rw"}},
-    #         user=0,
-    #     )
+    def __init__(
+        self,
+        scope: core.Construct,
+        id: str,
+        entrypoint: Optional[List] = None,
+        cpu: Union[int, float] = 256,
+        memory: Union[int, float] = 512,
+        mincount: int = 1,
+        maxcount: int = 50,
+        permissions: Optional[List[iam.PolicyStatement]] = None,
+        vpc_id: Optional[str] = None,
+        vpc_is_default: Optional[bool] = None,
+        environment: dict = {},
+        **kwargs: Any,
+    ) -> None:
+        """Define stack."""
+        super().__init__(scope, id, **kwargs)
 
-    #     return aws_lambda.Code.asset(os.path.join(code_dir, "package.zip"))
+        permissions = permissions or []
 
+        vpc = ec2.Vpc.from_lookup(self, "vpc", vpc_id=vpc_id, is_default=vpc_is_default)
 
-# class ECS(core.Stack):
-#     """Titiler ECS Fargate Stack."""
+        cluster = ecs.Cluster(self, f"{id}-cluster", vpc=vpc)
 
-#     def __init__(
-#         self,
-#         scope: core.Construct,
-#         id: str,
-#         cpu: Union[int, float] = 256,
-#         memory: Union[int, float] = 512,
-#         mincount: int = 1,
-#         maxcount: int = 50,
-#         permissions: Optional[List[iam.PolicyStatement]] = None,
-#         vpc_id: Optional[str] = None,
-#         vpc_is_default: Optional[bool] = None,
-#         environment: dict = {},
-#         **kwargs: Any,
-#     ) -> None:
-#         """Define stack."""
-#         super().__init__(scope, id, **kwargs)
+        topic = sns.Topic(self, "ecsTopic", display_name="ECS Watchbot SNS Topic")
+        core.CfnOutput(
+            self,
+            "SNSTopic",
+            value=topic.topic_arn,
+            description="SNS Topic ARN",
+            export_name=f"{id}-SNSTopic",
+        )
 
-#         permissions = permissions or []
+        dlqueue = sqs.Queue(self, "ecsDeadLetterQueue")
+        core.CfnOutput(
+            self,
+            "DeadSQSQueueURL",
+            value=dlqueue.queue_url,
+            description="DeadLetter SQS URL",
+            export_name=f"{id}-DeadSQSQueueURL",
+        )
 
-#         vpc = ec2.Vpc.from_lookup(self, 'vpc', vpc_id=vpc_id, is_default=vpc_is_default)
+        queue = sqs.Queue(
+            self,
+            "ecsQueue",
+            dead_letter_queue=sqs.DeadLetterQueue(queue=dlqueue, max_receive_count=3),
+        )
+        core.CfnOutput(
+            self,
+            "SQSQueueURL",
+            value=queue.queue_url,
+            description="SQS URL",
+            export_name=f"{id}-SQSQueueURL",
+        )
 
-#         cluster = ecs.Cluster(self, f"{id}-cluster", vpc=vpc)
+        environment.update({"REGION": self.region, "QUEUE_NAME": queue.queue_name})
 
-#         topic = sns.Topic(self, "ecsTopic", display_name="ECS Watchbot SNS Topic")
-#         dlqueue = sqs.Queue(self, "ecsDeadLetterQueue")
-#         queue = sqs.Queue(
-#             self,
-#             "ecsQueue",
-#             dead_letter_queue=sqs.DeadLetterQueue(
-#                 queue=dlqueue, max_receive_count=3
-#             ),
-#         )
-#         environment.update({"REGION": self.region})
+        topic.add_subscription(sns_sub.SqsSubscription(queue))
 
-#         topic.add_subscription(sns_sub.SqsSubscription(queue))
+        # I can't find a way to overwrite the entry point
+        image = ecs.ContainerImage.from_asset(directory="./")
 
-#         fargate_service = aws_ecs_patterns.QueueProcessingFargateService(
-#             self,
-#             f"{id}-ecs",
-#             cpu=cpu,
-#             memory_limit_mib=memory,
-#             image=ecs.ContainerImage.from_asset(
-#                 directory='.',
-#                 file='Dockerfile.ecs',
-#                 exclude=["cdk.out"]
-#             ),
-#             desired_task_count=mincount,
-#             max_scaling_capacity=maxcount,
-#             enable_ecs_managed_tags=True,
-#             environment=environment,
-#             max_receive_count=3,
-#             enable_logging=True,
-#             queue=queue,
-#             cluster=cluster,
-#             scaling_steps=[
-#                 {"upper": 0, "change": -5},
-#                 {"lower": 1, "change": +5},
-#             ],
-#         )
+        fargate_task_definition = ecs.FargateTaskDefinition(
+            self, "FargateTaskDefinition", memory_limit_mib=memory, cpu=cpu
+        )
+        fargate_task_definition.add_container(
+            "FargateContainer",
+            image=image,
+            entry_point=entrypoint,
+            environment=environment,
+            logging=ecs.LogDrivers.aws_logs(stream_prefix=id),
+        )
+        fargate_service = ecs.FargateService(
+            self,
+            "FargateService",
+            cluster=cluster,
+            task_definition=fargate_task_definition,
+            desired_count=mincount,
+            enable_ecs_managed_tags=True,
+        )
+        permissions.append(
+            iam.PolicyStatement(actions=["sqs:*"], resources=[queue.queue_arn],)
+        )
 
-#         for perm in permissions:
-#             fargate_service.task_definition.task_role.add_to_policy(perm)
+        scaling = fargate_service.auto_scale_task_count(
+            min_capacity=mincount, max_capacity=maxcount,
+        )
+        scaling.scale_on_cpu_utilization("CpuScaling", target_utilization_percent=50)
+
+        scaling.scale_on_metric(
+            "QueueMessagesVisibleScaling",
+            metric=queue.metric_approximate_number_of_messages_visible(),
+            scaling_steps=[
+                ScalingInterval(change=-5, upper=0),
+                ScalingInterval(change=+5, lower=1),
+            ],
+        )
+
+        for perm in permissions:
+            fargate_service.task_definition.task_role.add_to_policy(perm)
