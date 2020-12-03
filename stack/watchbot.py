@@ -171,6 +171,7 @@ class ECS(core.Stack):
             task_definition=fargate_task_definition,
             desired_count=mincount,
             enable_ecs_managed_tags=True,
+            assign_public_ip=True,
         )
         permissions.append(
             iam.PolicyStatement(actions=["sqs:*"], resources=[queue.queue_arn],)
@@ -181,6 +182,7 @@ class ECS(core.Stack):
         )
         scaling.scale_on_cpu_utilization("CpuScaling", target_utilization_percent=50)
 
+        # Note: This will scale the service even when message are inflight.
         scaling.scale_on_metric(
             "QueueMessagesVisibleScaling",
             metric=queue.metric_approximate_number_of_messages_visible(),

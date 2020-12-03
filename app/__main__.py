@@ -18,13 +18,10 @@ logging.getLogger("rio-tiler").setLevel(logging.ERROR)
 
 
 def _parse_message(message):
-    if not message.get("Records"):
-        return message
-
-    record = message["Records"][0]
-    body = json.loads(record["body"])
-
-    return body["Message"]
+    if message.get("Records"):
+        record = message["Records"][0]
+        message = json.loads(record["body"])
+    return message["Message"]
 
 
 def main():
