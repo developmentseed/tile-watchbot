@@ -3,7 +3,7 @@ FROM lambgeo/lambda-gdal:3.2-python3.8 as gdal
 COPY setup.py setup.py
 COPY app/ app/
 
-RUN pip install . -t /opt/python  --no-binary numpy,rasterio,pygeos,pydantic --no-cache
+RUN pip install . -t $PREFIX/python  --no-binary numpy,rasterio,pygeos,pydantic --no-cache-dir
 
 RUN find /opt/python -type d -a -name 'tests' -print0 | xargs -0 rm -rf
 RUN find /opt/python -type f -name '*.pyc' | while read f; do n=$(echo $f | sed 's/__pycache__\///' | sed 's/.cpython-[2-3][0-9]//'); cp $f $n; done;
