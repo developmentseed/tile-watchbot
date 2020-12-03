@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_iam as iam
-from aws_cdk import aws_lambda, aws_lambda_event_sources
+from aws_cdk import aws_lambda, aws_lambda_event_sources, aws_logs
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as sns_sub
 from aws_cdk import aws_sqs as sqs
@@ -148,19 +148,22 @@ class ECS(core.Stack):
 
         topic.add_subscription(sns_sub.SqsSubscription(queue))
 
-        # I can't find a way to overwrite the entry point
-        image = ecs.ContainerImage.from_asset(directory="./")
-
         fargate_task_definition = ecs.FargateTaskDefinition(
-            self, "FargateTaskDefinition", memory_limit_mib=memory, cpu=cpu
+            self, "FargateTaskDefinition", memory_limit_mib=memory, cpu=cpu,
         )
+        log_driver = ecs.AwsLogDriver(
+            stream_prefix=f"/ecs/tilebot/{id}",
+            log_retention=aws_logs.RetentionDays.ONE_WEEK,
+        )
+
         fargate_task_definition.add_container(
             "FargateContainer",
-            image=image,
+            image=ecs.ContainerImage.from_asset(directory="./"),
             entry_point=entrypoint,
             environment=environment,
-            logging=ecs.LogDrivers.aws_logs(stream_prefix=id),
+            logging=log_driver,
         )
+
         fargate_service = ecs.FargateService(
             self,
             "FargateService",
