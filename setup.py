@@ -1,13 +1,9 @@
 """Setup."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Runtime requirements.
-inst_reqs = [
-    "rio-tiler==2.0.0rc3",
-    "rio-tiler-pds==0.4.1",
-    "cogeo-mosaic==3.0.0a18",
-]
+inst_reqs = ["rio-tiler==2.0.0rc3", "rio-tiler-pds==0.4.1", "cogeo-mosaic==3.0.0a18"]
 
 extra_reqs = {
     "test": ["pytest", "pytest-cov"],

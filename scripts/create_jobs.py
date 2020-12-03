@@ -1,12 +1,11 @@
 """create_job: Feed SQS queue."""
 
 import json
-from functools import partial
 from concurrent import futures
+from functools import partial
 
 import click
 from boto3.session import Session as boto3_session
-
 from rio_tiler.utils import _chunks
 
 
@@ -14,14 +13,14 @@ def aws_send_message(message, topic, client=None):
     """Send SNS message."""
     if not client:
         session = boto3_session()
-        client = session.client('sns')
+        client = session.client("sns")
     return client.publish(Message=json.dumps(message), TargetArn=topic)
 
 
 def sns_worker(messages, topic, subject=None):
     """Send batch of SNS messages."""
     session = boto3_session(region_name="us-west-2")
-    client = session.client('sns')
+    client = session.client("sns")
     for message in messages:
         aws_send_message(message, topic, client=client)
     return True
@@ -46,6 +45,7 @@ def cli(tiles, dataset, reader, layers, expression, topic):
         --topic arn:aws:sns:us-west-2:1111111111:tilebot-lambda-production-TopicAAAAAAAAAAAAAAAAAA
 
     """
+
     def _create_message(tile):
         m = {"tile": tile, "dataset": dataset}
         if layers:

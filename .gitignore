@@ -107,3 +107,5 @@ ENV/
 package.zip
 
 cdk.out/
+
+data/

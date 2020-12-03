@@ -1,12 +1,9 @@
 """app."""
 
-import os
-from aws_cdk import core, aws_iam as iam
-
-from watchbot import Lambda #, ECS
-
+from aws_cdk import aws_iam as iam
+from aws_cdk import core
 from config import stack_config
-
+from watchbot import Lambda  # , ECS
 
 env = dict(
     CPL_TMPDIR="/tmp",
@@ -54,14 +51,8 @@ stack = core.Stack()
 if stack_config.mosaic_backend == "dynamodb://":
     perms.append(
         iam.PolicyStatement(
-            actions=[
-                "dynamodb:GetItem",
-                "dynamodb:Scan",
-                "dynamodb:BatchWriteItem",
-            ],
-            resources=[
-                f"arn:aws:dynamodb:{stack.region}:{stack.account}:table/*"
-            ],
+            actions=["dynamodb:GetItem", "dynamodb:Scan", "dynamodb:BatchWriteItem"],
+            resources=[f"arn:aws:dynamodb:{stack.region}:{stack.account}:table/*"],
         )
     )
 

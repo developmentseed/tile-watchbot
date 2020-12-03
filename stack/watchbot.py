@@ -1,20 +1,15 @@
 """cdk_watchbot.lambdaStack: SQS + SNS + LAMBDA/ECS."""
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
-from aws_cdk import (
-    core,
-    aws_ecs as ecs,
-    aws_ec2 as ec2,
-    aws_ecs_patterns,
-    aws_sqs as sqs,
-    aws_sns as sns,
-    aws_sns_subscriptions as sns_sub,
-    aws_iam as iam,
-    aws_lambda,
-    aws_lambda_event_sources,
-    aws_ecr_assets,
-)
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda, aws_lambda_event_sources
+from aws_cdk import aws_sns as sns
+from aws_cdk import aws_sns_subscriptions as sns_sub
+from aws_cdk import aws_sqs as sqs
+from aws_cdk import core
+
+# from aws_cdk import aws_ecs as ecs, aws_ec2 as ec2, aws_ecs_patterns, aws_ecr_assets,
 
 
 class Lambda(core.Stack):
@@ -40,6 +35,14 @@ class Lambda(core.Stack):
         permissions = permissions or []
 
         topic = sns.Topic(self, "lambdaTopic", display_name="Lambda Watchbot SNS Topic")
+        core.CfnOutput(
+            self,
+            "SNSTopic",
+            value=topic.topic_arn,
+            description="SNS Topic ARN",
+            export_name="SNSTopic",
+        )
+
         dlqueue = sqs.Queue(self, "lambdaDeadLetterQueue")
         queue = sqs.Queue(
             self,
@@ -47,10 +50,17 @@ class Lambda(core.Stack):
             visibility_timeout=core.Duration.seconds(timeout),
             dead_letter_queue=sqs.DeadLetterQueue(queue=dlqueue, max_receive_count=3),
         )
+        core.CfnOutput(
+            self,
+            "SQSQueueURL",
+            value=queue.queue_url,
+            description="SQS URL",
+            export_name="SQSQueueURL",
+        )
 
         topic.add_subscription(sns_sub.SqsSubscription(queue))
 
-        asset = aws_lambda.AssetImageCode(directory="./", cmd=[handler])
+        asset = aws_lambda.AssetImageCode(directory="./")
 
         worker = aws_lambda.Function(
             self,

@@ -1,6 +1,7 @@
 """goes16 main cmd."""
 
 import json
+import logging
 import os
 import sys
 import time
@@ -9,6 +10,11 @@ import boto3
 from botocore.exceptions import ClientError
 
 from .process import process
+
+logger = logging.getLogger("tilebot")
+logging.getLogger("botocore.credentials").disabled = True
+logging.getLogger("botocore.utils").disabled = True
+logging.getLogger("rio-tiler").setLevel(logging.ERROR)
 
 
 def _parse_message(message):
@@ -37,7 +43,7 @@ def main():
         message = False
         for message in queue.receive_messages():
             m = _parse_message(json.loads(message.body))
-            print(json.dumps(m))
+            logger.info(m)
             process(m)
 
             # Let the queue know that the message is processed

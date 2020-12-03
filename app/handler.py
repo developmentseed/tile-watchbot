@@ -1,8 +1,14 @@
 """Worker."""
 
 import json
+import logging
 
 from .process import process
+
+logger = logging.getLogger("tilebot")
+logging.getLogger("botocore.credentials").disabled = True
+logging.getLogger("botocore.utils").disabled = True
+logging.getLogger("rio-tiler").setLevel(logging.ERROR)
 
 
 def _parse_message(message):
@@ -23,4 +29,5 @@ def main(event, context):
 
     """
     message = _parse_message(event)
+    logger.info(message)
     return process(message)

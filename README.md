@@ -37,6 +37,5 @@ $ cat ../list_tiles.txt | python -m create_jobs - \
     --dataset mosaicid://username.layer \
     --reader rio_tiler_pds.sentinel.aws.S2COGReader \
     --expression "B02,B8A,B11,B12,(B08 - B04) / (B08 + B04),1.5 * (B08-B04) / (0.5 + B08 + B04)" \
-    --mosaic \
     --topic arn:aws:sns:us-west-2:1111111111:tilebot-lambda-production-TopicAAAAAAAAAAAAAAAAAA
 ```

@@ -1,7 +1,8 @@
 """app settings"""
 
-import pydantic
 from typing import Optional
+
+import pydantic
 
 
 class MosaicSettings(pydantic.BaseSettings):
