@@ -10,6 +10,7 @@ from types import DynamicClassAttribute
 from typing import Any, BinaryIO, Dict, Optional, Union
 from urllib.parse import urlparse
 
+import numpy
 from boto3.session import Session as boto3_session
 from cogeo_mosaic.backends import MosaicBackend
 from cogeo_mosaic.errors import NoAssetFoundError
@@ -138,7 +139,7 @@ def process(message):
                 bname = os.path.basename(mosaic_dataset).split(".")[0]
 
             out_key = os.path.join(
-                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npy"
+                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npz"
             )
             with MosaicBackend(url, reader=reader) as src_dst:
                 if not message.expression:
@@ -156,7 +157,7 @@ def process(message):
         else:
             bname = os.path.basename(dataset).split(".")[0]
             out_key = os.path.join(
-                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npy"
+                bname, f"{message.tile.z}-{message.tile.x}-{message.tile.y}.npz"
             )
             with reader(dataset) as src_dst:
                 if not message.expression:
@@ -167,6 +168,9 @@ def process(message):
                 except TileOutsideBounds:
                     continue
 
-        _s3_upload(BytesIO(data.render(img_format="npy")), out_bucket, out_key)
+        bio = BytesIO()
+        numpy.savez_compressed(bio, data=data.data, mask=data.mask)
+        bio.seek(0)
+        _s3_upload(bio, out_bucket, out_key)
 
     return True

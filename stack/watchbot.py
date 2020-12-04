@@ -260,11 +260,12 @@ class ECS(core.Stack):
             scaling_target_id=scalable_target.scalable_target_id,
             step_scaling_policy_configuration=auto_scale.CfnScalingPolicy.StepScalingPolicyConfigurationProperty(
                 adjustment_type="ChangeInCapacity",
-                cooldown=300,
+                cooldown=120,
                 metric_aggregation_type="Maximum",
                 step_adjustments=[
                     auto_scale.CfnScalingPolicy.StepAdjustmentProperty(
-                        scaling_adjustment=5, metric_interval_lower_bound=0,
+                        scaling_adjustment=int(maxcount / 10),
+                        metric_interval_lower_bound=0,
                     ),
                 ],
             ),
@@ -282,7 +283,7 @@ class ECS(core.Stack):
             namespace="AWS/SQS",
             evaluation_periods=1,
             comparison_operator="GreaterThanThreshold",
-            period=300,
+            period=60,
             statistic="Maximum",
             threshold=0,
             alarm_actions=[scale_up.ref],
@@ -296,7 +297,7 @@ class ECS(core.Stack):
             scaling_target_id=scalable_target.scalable_target_id,
             step_scaling_policy_configuration=auto_scale.CfnScalingPolicy.StepScalingPolicyConfigurationProperty(
                 adjustment_type="ExactCapacity",
-                cooldown=300,
+                cooldown=60,
                 step_adjustments=[
                     auto_scale.CfnScalingPolicy.StepAdjustmentProperty(
                         scaling_adjustment=mincount, metric_interval_upper_bound=0,
@@ -318,7 +319,7 @@ class ECS(core.Stack):
             namespace="AWS/SQS",
             evaluation_periods=1,
             comparison_operator="LessThanThreshold",
-            period=600,
+            period=120,
             statistic="Maximum",
             threshold=1,
             alarm_actions=[scale_down.ref],

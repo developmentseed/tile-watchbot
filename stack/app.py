@@ -31,7 +31,7 @@ app = core.App()
 
 # Tag infrastructure
 for key, value in {
-    "Project": stack_config.name,
+    "Project": stack_config.project,
     "Stack": stack_config.stage,
     "Owner": stack_config.owner,
     "Client": stack_config.client,
