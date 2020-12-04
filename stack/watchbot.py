@@ -2,15 +2,18 @@
 
 from typing import Any, Dict, List, Optional, Union
 
+# from aws_cdk.aws_applicationautoscaling import ScalingInterval
+from aws_cdk import aws_applicationautoscaling as auto_scale
+from aws_cdk import aws_cloudwatch
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
+from aws_cdk import aws_events, aws_events_targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda, aws_lambda_event_sources, aws_logs
 from aws_cdk import aws_sns as sns
 from aws_cdk import aws_sns_subscriptions as sns_sub
 from aws_cdk import aws_sqs as sqs
 from aws_cdk import core
-from aws_cdk.aws_applicationautoscaling import ScalingInterval
 
 
 class Lambda(core.Stack):
@@ -176,21 +179,147 @@ class ECS(core.Stack):
         permissions.append(
             iam.PolicyStatement(actions=["sqs:*"], resources=[queue.queue_arn],)
         )
-
-        scaling = fargate_service.auto_scale_task_count(
-            min_capacity=mincount, max_capacity=maxcount,
-        )
-        scaling.scale_on_cpu_utilization("CpuScaling", target_utilization_percent=50)
-
-        # Note: This will scale the service even when message are inflight.
-        scaling.scale_on_metric(
-            "QueueMessagesVisibleScaling",
-            metric=queue.metric_approximate_number_of_messages_visible(),
-            scaling_steps=[
-                ScalingInterval(change=-5, upper=0),
-                ScalingInterval(change=+5, lower=1),
-            ],
-        )
-
         for perm in permissions:
             fargate_service.task_definition.task_role.add_to_policy(perm)
+
+        total_number_of_message_lambda = aws_lambda.Function(
+            self,
+            f"{id}-TotalMessagesLambda",
+            description="Create TotalNumberOfMessage metrics",
+            code=aws_lambda.Code.from_inline(
+                """const AWS = require('aws-sdk');
+    exports.handler = function(event, context, callback) {
+    const sqs = new AWS.SQS({ region: process.env.AWS_DEFAULT_REGION });
+    const cw = new AWS.CloudWatch({ region: process.env.AWS_DEFAULT_REGION });
+    return sqs.getQueueAttributes({
+        QueueUrl: process.env.SQS_QUEUE_URL,
+        AttributeNames: ['ApproximateNumberOfMessagesNotVisible', 'ApproximateNumberOfMessages']
+    }).promise()
+    .then((attrs) => {
+        return cw.putMetricData({
+            Namespace: 'AWS/SQS',
+            MetricData: [{
+            MetricName: 'TotalNumberOfMessages',
+            Dimensions: [{ Name: 'QueueName', Value: process.env.SQS_QUEUE_NAME }],
+            Value: Number(attrs.Attributes.ApproximateNumberOfMessagesNotVisible) +
+                    Number(attrs.Attributes.ApproximateNumberOfMessages)
+            }]
+        }).promise();
+    })
+    .then((metric) => callback(null, metric))
+    .catch((err) => callback(err));
+};"""
+            ),
+            handler="index.handler",
+            runtime=aws_lambda.Runtime.NODEJS_10_X,
+            timeout=core.Duration.seconds(60),
+            environment={
+                "SQS_QUEUE_URL": queue.queue_url,
+                "SQS_QUEUE_NAME": queue.queue_name,
+            },
+        )
+        total_number_of_message_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["sqs:GetQueueAttributes"], resources=[queue.queue_arn],
+            )
+        )
+        total_number_of_message_lambda.add_to_role_policy(
+            iam.PolicyStatement(actions=["cloudwatch:PutMetricData"], resources=["*"],)
+        )
+        total_number_of_message_lambda.add_to_role_policy(
+            iam.PolicyStatement(actions=["logs:*"], resources=["arn:aws:logs:*:*:*"],)
+        )
+
+        rule = aws_events.Rule(
+            self,
+            "TotalMessagesSchedule",
+            schedule=aws_events.Schedule.rate(core.Duration.seconds(60)),
+        )
+        rule.add_target(
+            aws_events_targets.LambdaFunction(total_number_of_message_lambda)
+        )
+
+        scalable_target = auto_scale.ScalableTarget(
+            self,
+            "AutoScallingTarget",
+            min_capacity=mincount,
+            max_capacity=maxcount,
+            service_namespace=auto_scale.ServiceNamespace.ECS,
+            resource_id="/".join(
+                ["service", cluster.cluster_name, fargate_service.service_name]
+            ),
+            scalable_dimension="ecs:service:DesiredCount",
+        )
+        scalable_target.node.add_dependency(fargate_service)
+
+        scale_up = auto_scale.CfnScalingPolicy(
+            self,
+            "ScaleUp",
+            policy_name="PolicyScaleUp",
+            policy_type="StepScaling",
+            scaling_target_id=scalable_target.scalable_target_id,
+            step_scaling_policy_configuration=auto_scale.CfnScalingPolicy.StepScalingPolicyConfigurationProperty(
+                adjustment_type="ChangeInCapacity",
+                cooldown=300,
+                metric_aggregation_type="Maximum",
+                step_adjustments=[
+                    auto_scale.CfnScalingPolicy.StepAdjustmentProperty(
+                        scaling_adjustment=5, metric_interval_lower_bound=0,
+                    ),
+                ],
+            ),
+        )
+        scale_up_trigger = aws_cloudwatch.CfnAlarm(  # noqa
+            self,
+            "ScaleUpTrigger",
+            alarm_description="Scale up due to visible messages in queue",
+            dimensions=[
+                aws_cloudwatch.CfnAlarm.DimensionProperty(
+                    name="QueueName", value=queue.queue_name,
+                ),
+            ],
+            metric_name="ApproximateNumberOfMessagesVisible",
+            namespace="AWS/SQS",
+            evaluation_periods=1,
+            comparison_operator="GreaterThanThreshold",
+            period=300,
+            statistic="Maximum",
+            threshold=0,
+            alarm_actions=[scale_up.ref],
+        )
+
+        scale_down = auto_scale.CfnScalingPolicy(
+            self,
+            "ScaleDown",
+            policy_name="PolicyScaleDown",
+            policy_type="StepScaling",
+            scaling_target_id=scalable_target.scalable_target_id,
+            step_scaling_policy_configuration=auto_scale.CfnScalingPolicy.StepScalingPolicyConfigurationProperty(
+                adjustment_type="ExactCapacity",
+                cooldown=300,
+                step_adjustments=[
+                    auto_scale.CfnScalingPolicy.StepAdjustmentProperty(
+                        scaling_adjustment=mincount, metric_interval_upper_bound=0,
+                    ),
+                ],
+            ),
+        )
+
+        scale_down_trigger = aws_cloudwatch.CfnAlarm(  # noqa
+            self,
+            "ScaleDownTrigger",
+            alarm_description="Scale down due to lack of in-flight messages in queue",
+            dimensions=[
+                aws_cloudwatch.CfnAlarm.DimensionProperty(
+                    name="QueueName", value=queue.queue_name,
+                ),
+            ],
+            metric_name="TotalNumberOfMessages",
+            namespace="AWS/SQS",
+            evaluation_periods=1,
+            comparison_operator="LessThanThreshold",
+            period=600,
+            statistic="Maximum",
+            threshold=1,
+            alarm_actions=[scale_down.ref],
+        )
