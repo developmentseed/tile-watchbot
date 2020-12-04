@@ -1,8 +1,7 @@
-"""cdk_watchbot.lambdaStack: SQS + SNS + LAMBDA/ECS."""
+"""LAMBDA/ECS Watchbot CDK constructs."""
 
 from typing import Any, Dict, List, Optional, Union
 
-# from aws_cdk.aws_applicationautoscaling import ScalingInterval
 from aws_cdk import aws_applicationautoscaling as auto_scale
 from aws_cdk import aws_cloudwatch
 from aws_cdk import aws_ec2 as ec2
@@ -90,7 +89,7 @@ class Lambda(core.Stack):
 
 
 class ECS(core.Stack):
-    """Titiler ECS Fargate Stack."""
+    """ECS Watchbot Stack."""
 
     def __init__(
         self,
