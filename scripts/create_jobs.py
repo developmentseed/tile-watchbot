@@ -47,7 +47,7 @@ def cli(tiles, dataset, reader, layers, expression, pixel_selection, topic):
     """
 
     def _create_message(tile):
-        m = {"tile": tile, "dataset": dataset}
+        m = {"tile": tile.rstrip(), "dataset": dataset}
         if layers:
             m.update({"indexes": layers})
         if expression:

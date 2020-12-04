@@ -2,8 +2,7 @@
 
 Create Tiles ... a lot of tiles
 
-
-### 1. Deploy STACK
+## 1. Deploy STACK
 
 add `.env` in `/stack` with the wanted config (or use environment variables)
 
@@ -19,11 +18,15 @@ STACK_STAGE=production
 STACK_BUCKETS='["mybucket-us-west-2", "*sentinel-cogs*"]'
 
 STACK_OUTPUT_BUCKET=mybucket-us-west-2
-````
+```
 
-`AWS_DEFAULT_REGION=us-west-2 AWS_REGION=us-west-2 cdk deploy tilebot-lambda-production`
+#### Lambda
+`cdk deploy tilebot-lambda-production`
 
-### 2. Send jobs
+#### ECS - Fargate
+`cdk deploy tilebot-ecs-production`
+
+## 2. Send jobs
 
 - Create list of tiles in form of `Z-X-Y`
 ```

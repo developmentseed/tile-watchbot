@@ -1,21 +1,19 @@
 version: '3'
 
 services:
-  tilebot:
+  tilebot-ecs:
     build:
       context: .
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - REGION=${AWS_REGION}
-      - AWS_REGION=${AWS_REGION}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
       - CPL_TMPDIR=/tmp
       - GDAL_CACHEMAX=75%
       - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
       - GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
       - GDAL_HTTP_MULTIPLEX=YES
       - GDAL_HTTP_VERSION=2
+      - REGION=
       - QUEUE_NAME=
       - MOSAIC_BACKEND=
       - MOSAIC_HOST=

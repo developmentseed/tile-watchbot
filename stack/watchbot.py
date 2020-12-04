@@ -99,8 +99,9 @@ class ECS(core.Stack):
         entrypoint: Optional[List] = None,
         cpu: Union[int, float] = 256,
         memory: Union[int, float] = 512,
-        mincount: int = 1,
+        mincount: int = 0,
         maxcount: int = 50,
+        scaling_steps: int = 5,
         permissions: Optional[List[iam.PolicyStatement]] = None,
         vpc_id: Optional[str] = None,
         vpc_is_default: Optional[bool] = None,
@@ -264,8 +265,7 @@ class ECS(core.Stack):
                 metric_aggregation_type="Maximum",
                 step_adjustments=[
                     auto_scale.CfnScalingPolicy.StepAdjustmentProperty(
-                        scaling_adjustment=int(maxcount / 10),
-                        metric_interval_lower_bound=0,
+                        scaling_adjustment=scaling_steps, metric_interval_lower_bound=0,
                     ),
                 ],
             ),

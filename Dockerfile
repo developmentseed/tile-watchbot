@@ -1,15 +1,17 @@
 FROM lambgeo/lambda-gdal:3.2-python3.8 as gdal
 
-COPY setup.py setup.py
-COPY app/ app/
-
-RUN pip install . -t $PREFIX/python  --no-binary numpy,rasterio,pygeos,pydantic --no-cache-dir
+# We Install dependencies from requirements.txt
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt -t $PREFIX/python  --no-binary numpy,rasterio,pygeos,pydantic --no-cache-dir
 
 RUN find /opt/python -type d -a -name 'tests' -print0 | xargs -0 rm -rf
 RUN find /opt/python -type f -name '*.pyc' | while read f; do n=$(echo $f | sed 's/__pycache__\///' | sed 's/.cpython-[2-3][0-9]//'); cp $f $n; done;
 RUN find /opt/python -type d -a -name '__pycache__' -print0 | xargs -0 rm -rf
 RUN find /opt/python -type f -a -name '*.py' -print0 | xargs -0 rm -f
 RUN cd /opt && find lib -name \*.so\* -exec strip {} \;
+
+# After installing the dependencies we just put our app in the python directory
+COPY app/ $PREFIX/python/app
 
 RUN rm -rf /opt/share/aclocal \
     && rm -rf /opt/share/doc \

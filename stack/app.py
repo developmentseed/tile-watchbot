@@ -41,10 +41,17 @@ for key, value in {
 
 
 perms = []
+perms.append(
+    iam.PolicyStatement(
+        actions=["s3:PutObject", "s3:PutObjectAcl"],
+        resources=[f"arn:aws:s3:::{stack_config.output_bucket}*"],
+    )
+)
+
 if stack_config.buckets:
     perms.append(
         iam.PolicyStatement(
-            actions=["s3:*"],
+            actions=["s3:GetObject"],
             resources=[f"arn:aws:s3:::{bucket}*" for bucket in stack_config.buckets],
         )
     )
@@ -78,6 +85,7 @@ ECS(
     memory=stack_config.task_memory,
     mincount=stack_config.min_ecs_instances,
     maxcount=stack_config.max_ecs_instances,
+    scaling_steps=stack_config.ecs_scaling_step,
     permissions=perms,
     vpc_id=stack_config.vpcId,
     vpc_is_default=stack_config.default_vpc,

@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import logging
 import os
 import warnings
 from enum import Enum
@@ -21,6 +22,8 @@ from rio_tiler.io import BaseReader
 from rio_tiler.mosaic.methods import defaults
 
 from .settings import mosaic_config
+
+logger = logging.getLogger("tilebot")
 
 
 class PixelSelectionMethod(str, Enum):
@@ -151,6 +154,9 @@ def process(message):
                 try:
                     data, _ = src_dst.tile(*message.tile, **kwargs)
                 except (NoAssetFoundError, EmptyMosaicError):
+                    logger.warning(
+                        f"No data of {mosaic_dataset} - {message.tile.z}-{message.tile.x}-{message.tile.y}"
+                    )
                     continue
 
         # BaseReader

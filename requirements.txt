@@ -1,0 +1,4 @@
+rio-tiler==2.0.0rc3
+rio-tiler-pds==0.4.1
+
+cogeo-mosaic==3.0.0a18
