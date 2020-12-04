@@ -31,4 +31,4 @@ ENV \
     PROJ_LIB=/opt/share/proj \
     GDAL_CONFIG=/opt/bin/gdal-config \
     GEOS_CONFIG=/opt/bin/geos-config \
-    PATH=/opt/bin:/opt/python/bin:$PATH
+    PATH=/opt/bin:${LAMBDA_TASK_ROOT}/bin:$PATH
