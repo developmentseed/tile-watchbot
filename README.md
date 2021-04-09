@@ -19,6 +19,8 @@ STACK_BUCKETS='["mybucket-us-west-2", "*sentinel-cogs*"]'
 
 STACK_OUTPUT_BUCKET=mybucket-us-west-2
 ```
+#### Install CDK
+`npm install -g aws-cdk@1.76.0`
 
 #### Lambda
 `cdk deploy tilebot-lambda-production`

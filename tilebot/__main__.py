@@ -1,4 +1,4 @@
-"""goes16 main cmd."""
+"""tilebot main cmd."""
 
 import json
 import logging
@@ -9,7 +9,7 @@ import time
 import boto3
 from botocore.exceptions import ClientError
 
-from .process import process
+from tilebot.process import process
 
 logger = logging.getLogger("tilebot")
 logging.getLogger("botocore.credentials").disabled = True

@@ -3,7 +3,7 @@
 import json
 import logging
 
-from .process import process
+from tilebot.process import process
 
 logger = logging.getLogger("tilebot")
 logging.getLogger("botocore.credentials").disabled = True

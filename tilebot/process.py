@@ -17,11 +17,12 @@ from cogeo_mosaic.backends import MosaicBackend
 from cogeo_mosaic.errors import NoAssetFoundError
 from morecantile import Tile
 from pydantic import BaseModel, validator
+from rio_tiler.constants import MAX_THREADS
 from rio_tiler.errors import EmptyMosaicError, TileOutsideBounds
 from rio_tiler.io import BaseReader
 from rio_tiler.mosaic.methods import defaults
 
-from .settings import mosaic_config
+from tilebot.settings import mosaic_config
 
 logger = logging.getLogger("tilebot")
 
@@ -151,8 +152,9 @@ def process(message):
                     bidx_kwargs = _get_options(src_dst, message.indexes)
                     kwargs = {**kwargs, **bidx_kwargs}
 
+                threads = int(os.getenv("MOSAIC_CONCURRENCY", MAX_THREADS))
                 try:
-                    data, _ = src_dst.tile(*message.tile, **kwargs)
+                    data, _ = src_dst.tile(*message.tile, threads=threads, **kwargs)
                 except (NoAssetFoundError, EmptyMosaicError):
                     logger.warning(
                         f"No data of {mosaic_dataset} - {message.tile.z}-{message.tile.x}-{message.tile.y}"

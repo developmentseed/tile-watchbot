@@ -10,14 +10,16 @@ from watchbot import ECS, Lambda
 env = dict(
     CPL_TMPDIR="/tmp",
     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif",
-    GDAL_CACHEMAX="75%",
+    GDAL_CACHEMAX="200",
     GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
     GDAL_HTTP_MERGE_CONSECUTIVE_RANGES="YES",
     GDAL_HTTP_MULTIPLEX="YES",
     GDAL_HTTP_VERSION="2",
     PYTHONWARNINGS="ignore",
     VSI_CACHE="TRUE",
-    VSI_CACHE_SIZE="1000000",
+    VSI_CACHE_SIZE="5000000",
+    MOSAIC_CONCURRENCY="1",
+    MAX_THREADS="2",
 )
 env.update(
     dict(
@@ -69,7 +71,7 @@ if stack_config.mosaic_backend == "dynamodb://":
 Lambda(
     app,
     f"{stack_config.name}-lambda-{stack_config.stage}",
-    "app.handler.main",
+    "tilebot.handler.main",
     memory=stack_config.memory,
     timeout=stack_config.timeout,
     concurrent=stack_config.max_concurrent,
@@ -80,7 +82,7 @@ Lambda(
 ECS(
     app,
     f"{stack_config.name}-ecs-{stack_config.stage}",
-    entrypoint=["python", "-m", "app"],
+    entrypoint=["python", "-m", "tilebot"],
     cpu=stack_config.task_cpu,
     memory=stack_config.task_memory,
     mincount=stack_config.min_ecs_instances,
